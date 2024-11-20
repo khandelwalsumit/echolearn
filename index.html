@@ -7,7 +7,54 @@
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="static/styles.css">
+    <style>
+        body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    height: 100vh;
+    display: flex;
+}
+
+.left-panel {
+    background: linear-gradient(135deg, #003366, #1a73e8);
+    color: white;
+    padding: 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.right-panel {
+    background-color: black;
+    color: white;
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+}
+
+textarea {
+    font-size: 18px;
+    flex: 1;
+    background-color: #222;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    resize: none;
+    padding: 10px;
+}
+
+textarea:focus {
+    outline: none;
+    box-shadow: 0 0 5px #1a73e8;
+}
+
+footer {
+    margin-top: 10px;
+}
+
+    </style>
 </head>
 <body>
     
@@ -54,6 +101,67 @@
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Custom Script -->
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        const editor = document.getElementById('editor');
+const charToggle = document.getElementById('charToggle');
+const wordToggle = document.getElementById('wordToggle');
+const sentenceToggle = document.getElementById('sentenceToggle');
+const speedInput = document.getElementById('speed');
+const speedValueLabel = document.getElementById('speedValue');
+const delayInput = document.getElementById('delay');
+
+
+let speechSpeed = parseFloat(speedInput.value);
+let speechDelay = parseInt(delayInput.value);
+
+// Update speech settings
+speedInput.addEventListener('input', () => {
+    speechSpeed = parseFloat(speedInput.value);
+    speedValueLabel.textContent = speechSpeed.toFixed(1); // Display value with 1 decimal place
+});
+
+delayInput.addEventListener('input', () => {
+    speechDelay = parseInt(delayInput.value);
+});
+
+// Speech synthesis
+function speak(text) {
+    const synth = window.speechSynthesis;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = speechSpeed;
+    setTimeout(() => synth.speak(utterance), speechDelay);
+}
+
+editor.addEventListener('input', (e) => {
+    const value = editor.value;
+    const lastChar = value.slice(-1);
+
+    // Cancel all speech if Backspace is pressed
+    if (e.inputType === 'deleteContentBackward') {
+        window.speechSynthesis.cancel();
+        return;
+    }
+
+    // Character feedback
+    if (charToggle.checked && lastChar.match(/[\w\s]/)) {
+        speak(lastChar);
+    }
+
+    // Word feedback (space key)
+    if (wordToggle.checked && lastChar === ' ') {
+        const words = value.trim().split(' ');
+        const lastWord = words[words.length - 1];
+        speak(lastWord);
+    }
+
+    // Sentence feedback (full stop or comma)
+    if (sentenceToggle.checked && (lastChar === '.' || lastChar === ',')) {
+        const sentences = value.split(/[.,]/);
+        const lastSentence = sentences[sentences.length - 2]; // Last complete sentence
+        speak(lastSentence);
+    }
+});
+
+    </script>
 </body>
 </html>
