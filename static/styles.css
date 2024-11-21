@@ -43,3 +43,7 @@ textarea:focus {
 footer {
     margin-top: 10px;
 }
+
+form-check {
+    margin-bottom: 15px;
+}

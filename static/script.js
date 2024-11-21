@@ -1,59 +1,86 @@
-const editor = document.getElementById('editor');
-const charToggle = document.getElementById('charToggle');
-const wordToggle = document.getElementById('wordToggle');
-const sentenceToggle = document.getElementById('sentenceToggle');
-const speedInput = document.getElementById('speed');
-const speedValueLabel = document.getElementById('speedValue');
+// Connect to the Socket.IO server
+var socket = io.connect('http://' + document.domain + ':' + location.port);
+
+// Get the textarea element
+var textarea = document.getElementById('editor');
+
+// Speech settings
+const speedSlider = document.getElementById('speed');
+const speedValue = document.getElementById('speedValue');
 const delayInput = document.getElementById('delay');
+let speechSpeed = speedSlider.value;
+let speechDelay = delayInput.value;
 
-
-let speechSpeed = parseFloat(speedInput.value);
-let speechDelay = parseInt(delayInput.value);
-
-// Update speech settings
-speedInput.addEventListener('input', () => {
-    speechSpeed = parseFloat(speedInput.value);
-    speedValueLabel.textContent = speechSpeed.toFixed(1); // Display value with 1 decimal place
+// Update speech speed and delay value
+speedSlider.addEventListener('input', function() {
+    speechSpeed = speedSlider.value;
+    speedValue.innerText = speechSpeed;
 });
 
-delayInput.addEventListener('input', () => {
-    speechDelay = parseInt(delayInput.value);
+delayInput.addEventListener('input', function() {
+    speechDelay = delayInput.value;
 });
 
-// Speech synthesis
-function speak(text) {
-    const synth = window.speechSynthesis;
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = speechSpeed;
-    setTimeout(() => synth.speak(utterance), speechDelay);
+// Emit text change when typing
+textarea.addEventListener('input', function() {
+    socket.emit('text_change', { text: textarea.value });
+    handleLocalArticulation(); // Handle speech locally
+});
+
+// Listen for text updates from others
+socket.on('update_text', function(data) {
+    textarea.value = data.text;
+});
+
+// Emit speech data to the server for broadcasting
+function emitSpeakEvent(text) {
+    socket.emit('speak_text', { text, speed: speechSpeed });
 }
 
-editor.addEventListener('input', (e) => {
-    const value = editor.value;
-    const lastChar = value.slice(-1);
+// Listen for speech events from the server
+socket.on('broadcast_speak', function(data) {
+    speakText(data.text, data.speed);
+});
 
-    // Cancel all speech if Backspace is pressed
-    if (e.inputType === 'deleteContentBackward') {
-        window.speechSynthesis.cancel();
-        return;
-    }
+// Handle local articulation
+textarea.addEventListener('keydown', function(event) {
+    const text = textarea.value;
 
-    // Character feedback
-    if (charToggle.checked && lastChar.match(/[\w\s]/)) {
-        speak(lastChar);
-    }
-
-    // Word feedback (space key)
-    if (wordToggle.checked && lastChar === ' ') {
-        const words = value.trim().split(' ');
-        const lastWord = words[words.length - 1];
-        speak(lastWord);
-    }
-
-    // Sentence feedback (full stop or comma)
-    if (sentenceToggle.checked && (lastChar === '.' || lastChar === ',')) {
-        const sentences = value.split(/[.,]/);
-        const lastSentence = sentences[sentences.length - 2]; // Last complete sentence
-        speak(lastSentence);
+    if (event.key === 'Enter') {
+        event.preventDefault(); // Prevent a new line
+        if (document.getElementById('sentenceToggle').checked) {
+            setTimeout(() => {
+                emitSpeakEvent(text);
+            }, speechDelay);
+        }
     }
 });
+
+textarea.addEventListener('input', function() {
+    const text = textarea.value;
+    const lastChar = text.slice(-1);
+
+    if (document.getElementById('charToggle').checked) {
+        emitSpeakEvent(lastChar); // Broadcast character articulation
+    }
+
+    if (document.getElementById('wordToggle').checked && lastChar === ' ') {
+        const words = text.trim().split(' ');
+        const lastWord = words[words.length - 1];
+        emitSpeakEvent(lastWord); // Broadcast word articulation
+    }
+
+    if (document.getElementById('sentenceToggle').checked && /[.!?]$/.test(text)) {
+        emitSpeakEvent(text.trim()); // Broadcast sentence articulation
+    }
+});
+
+// Speech function
+function speakText(text, speed) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = speed;
+    utterance.volume = 1;
+    utterance.pitch = 1;
+    utterance.lang = 'en-US';
+    window.speechSynthesis.speak(utterance);
+}
